@@ -7,11 +7,11 @@
   "required": ["project"],
   "properties": {
     "project": {
-      "$ref": "#/$defs/Project"
+      "$ref": "#/$defs/project"
     }
   },
   "$defs": {
-    "Project": {
+    "project": {
       "type": "object",
       "required": ["id", "title", "description", "goal", "steps", "stepEdges"],
       "properties": {
@@ -21,11 +21,11 @@
         "goal": { "type": "string" },
         "steps": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Step" }
+          "items": { "$ref": "#/$defs/step" }
         },
         "stepEdges": {
           "type": "array",
-          "items": { "$ref": "#/$defs/StepEdge" }
+          "items": { "$ref": "#/$defs/stepEdge" }
         },
         "status": { "type": "string" },
         "successCriteria": {
@@ -39,7 +39,7 @@
       },
       "additionalProperties": false
     },
-    "Step": {
+    "step": {
       "type": "object",
       "required": ["id", "projectId", "stepType", "description", "phases", "phaseEdges"],
       "properties": {
@@ -49,12 +49,12 @@
         "description": { "type": "string" },
         "phases": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Phase" },
+          "items": { "$ref": "#/$defs/phase" },
           "minItems": 1
         },
         "phaseEdges": {
           "type": "array",
-          "items": { "$ref": "#/$defs/PhaseEdge" }
+          "items": { "$ref": "#/$defs/phaseEdge" }
         },
         "status": { "type": "string" },
         "successCriteria": {
@@ -68,7 +68,7 @@
       },
       "additionalProperties": false
     },
-    "Phase": {
+    "phase": {
       "type": "object",
       "required": ["id", "stepId", "phaseType", "description", "rootNodeId", "nodes", "edges"],
       "properties": {
@@ -82,12 +82,12 @@
         "rootNodeId": { "type": "string" },
         "nodes": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Node" },
+          "items": { "$ref": "#/$defs/node" },
           "minItems": 1
         },
         "edges": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Edge" }
+          "items": { "$ref": "#/$defs/edge" }
         },
         "status": { "type": "string" },
         "successCriteria": {
@@ -101,7 +101,7 @@
       },
       "additionalProperties": false
     },
-    "Node": {
+    "node": {
       "type": "object",
       "required": ["id", "phaseId", "nodeType", "title", "description"],
       "properties": {
@@ -125,7 +125,7 @@
       },
       "additionalProperties": false
     },
-    "Edge": {
+    "edge": {
       "type": "object",
       "required": ["id", "phaseId", "fromNodeId", "toNodeId", "edgeType"],
       "properties": {
@@ -145,7 +145,7 @@
       },
       "additionalProperties": false
     },
-    "StepEdge": {
+    "stepEdge": {
       "type": "object",
       "required": ["id", "projectId", "fromStepId", "toStepId"],
       "properties": {
@@ -156,7 +156,7 @@
       },
       "additionalProperties": false
     },
-    "PhaseEdge": {
+    "phaseEdge": {
       "type": "object",
       "required": ["id", "stepId", "fromPhaseId", "toPhaseId"],
       "properties": {
