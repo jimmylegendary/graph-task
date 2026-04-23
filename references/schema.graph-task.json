@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "graph-task.schema.v0",
+  "title": "GraphTaskProject",
+  "type": "object",
+  "required": ["project", "graph"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": ["id", "title", "objective", "phase"],
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": "string"},
+        "objective": {"type": "string"},
+        "phase": {"type": "string"},
+        "constraints": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "graph": {
+      "type": "object",
+      "required": ["nodes"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "status", "depends_on", "expected_result"],
+            "properties": {
+              "id": {"type": "string"},
+              "title": {"type": "string"},
+              "status": {
+                "type": "string",
+                "enum": ["planned", "ready", "running", "blocked", "done", "failed", "canceled", "superseded"]
+              },
+              "depends_on": {"type": "array", "items": {"type": "string"}},
+              "kind": {"type": "string", "default": "task"},
+              "expected_result": {"$ref": "expected-result.schema.json"},
+              "latest_result": {"$ref": "expected-result.schema.json"},
+              "artifacts": {"type": "array", "items": {"type": "string"}},
+              "attempt_count": {"type": "integer", "minimum": 0},
+              "branch_of": {"type": ["string", "null"]},
+              "metadata": {"type": "object"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

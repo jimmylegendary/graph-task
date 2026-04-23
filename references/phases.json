@@ -1,0 +1,100 @@
+{
+  "skill_name": "graph-task",
+  "objective": "Build a compact staged system for graph-based task execution: first OpenClaw graph-task skill/core, then Obsidian-based visualization/testing, then autonomous completion using existing execution tools.",
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "graph-task-core",
+      "goal": "Define the graph-task schema, expected-result contract, and CLI/OpenClaw skill behavior for human-guided execution.",
+      "scope_in": [
+        "graph task schema",
+        "node/dependency/status model",
+        "expected vs actual result contract",
+        "CLI for init/next/result/branch/retry/render",
+        "OpenClaw-readable skill instructions"
+      ],
+      "scope_out": [
+        "heartbeat automation",
+        "lobster orchestration",
+        "full unattended execution",
+        "Obsidian plugin implementation beyond minimal compatibility"
+      ],
+      "deliverables": [
+        "SKILL.md",
+        "references/schema.graph-task.json",
+        "references/expected-result.schema.json",
+        "references/test-levels.json",
+        "scripts/graph_task.py",
+        "examples/minimal-project/"
+      ],
+      "expected_results": [
+        "OpenClaw can inspect a graph, identify executable next work, and record outcomes structurally.",
+        "A human can review graph state and verify that transitions match the declared contract."
+      ],
+      "tests": [
+        "unit-graph-transition",
+        "unit-result-validation",
+        "integrated-cli-run",
+        "closed-human-guided-graph-walk"
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "obsidian-ops-surface",
+      "goal": "Use Obsidian as a human-visible graph management and validation surface for project task graphs.",
+      "scope_in": [
+        "visualization approach using existing Obsidian plugins",
+        "graph file organization for project notes",
+        "human-in-the-loop review/test flow",
+        "test fixtures demonstrating OpenClaw following graph flow"
+      ],
+      "scope_out": [
+        "full autonomous overnight execution",
+        "advanced bidirectional sync unless justified by tests"
+      ],
+      "deliverables": [
+        "references/obsidian-integration.md",
+        "examples/obsidian-project/",
+        "test scenarios for user/OpenClaw interaction"
+      ],
+      "expected_results": [
+        "A project graph can be visualized and inspected in Obsidian.",
+        "Jimmy and OpenClaw can test whether execution follows graph semantics correctly."
+      ],
+      "tests": [
+        "unit-render-compatibility",
+        "integrated-obsidian-graph-visibility",
+        "closed-human-openclaw-interaction-test"
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "autonomous-completion-loop",
+      "goal": "Allow OpenClaw to complete a provided graph to termination using existing execution tools like heartbeat and lobster.",
+      "scope_in": [
+        "heartbeat/lobster handoff contract",
+        "automatic next-node execution loop",
+        "blocking escalation and resume semantics",
+        "completion/stall detection"
+      ],
+      "scope_out": [
+        "new scheduler/queue platform",
+        "broad multi-tenant orchestration"
+      ],
+      "deliverables": [
+        "references/autonomy-loop.md",
+        "execution contract docs",
+        "automation test fixtures"
+      ],
+      "expected_results": [
+        "OpenClaw can drive a graph from ready state to terminal state without manual intervention except on blocking escalation.",
+        "The resulting state remains inspectable and resumable."
+      ],
+      "tests": [
+        "unit-escalation-policy",
+        "integrated-autonomous-run",
+        "closed-overnight-simulation"
+      ]
+    }
+  ]
+}
