@@ -10,7 +10,7 @@ Current direction:
 ## Current focus
 Phase 1: freeze the canonical graph-task semantics before richer visualization or unattended automation.
 
-## High-level schema
+## High-level contract
 
 `graph-task` currently freezes this hierarchy first:
 
@@ -20,11 +20,15 @@ Phase 1: freeze the canonical graph-task semantics before richer visualization o
 
 Notes:
 - `Step` includes `stepType` and `description`
+- `Phase` includes `phaseType` and `description`
 - `Phase` uses the functional modes `diverge | converge | verify | commit`
-- lower-level semantics for each entity are defined after the high-level graph shape is locked
+- a Step may repeat `diverge`, `converge`, and `verify`
+- a Step may contain at most one `commit` Phase
 
-See:
-- `references/phase1-graph-task-spec.md`
-- `references/schema.graph-task.json`
-- `references/expected-result.schema.json`
-- `references/phases.json`
+## References
+
+- `references/phase1-graph-task-spec.md` — Phase 1 overview
+- `references/schema.graph-task.json` — high-level entity schema
+- `references/rules.graph-task.md` — high-level structural rules
+- `references/expected-result.schema.json` — expected-vs-actual result contract
+- `references/phases.json` — staged roadmap

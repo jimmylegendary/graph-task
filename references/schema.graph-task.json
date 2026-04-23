@@ -1,26 +1,40 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "graph-task.schema.high-level.v1",
+  "$id": "graph-task.schema.high-level.v2",
   "title": "GraphTaskHighLevelSchema",
-  "description": "High-level hierarchical graph shape for graph-task. Project is a graph of Steps, Step is a graph of Phases, and Phase is a rooted graph of Nodes and Edges.",
+  "description": "High-level graph-task entity schema. Structural and operating rules are documented separately in references/rules.graph-task.md.",
   "type": "object",
   "required": ["project"],
   "properties": {
-    "project": {"$ref": "#/$defs/Project"}
+    "project": {
+      "$ref": "#/$defs/Project"
+    }
   },
   "$defs": {
     "Project": {
       "type": "object",
-      "required": ["id", "steps", "stepEdges"],
+      "required": ["id", "title", "description", "goal", "steps", "stepEdges"],
       "properties": {
-        "id": {"type": "string"},
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "goal": { "type": "string" },
         "steps": {
           "type": "array",
-          "items": {"$ref": "#/$defs/Step"}
+          "items": { "$ref": "#/$defs/Step" }
         },
         "stepEdges": {
           "type": "array",
-          "items": {"$ref": "#/$defs/StepEdge"}
+          "items": { "$ref": "#/$defs/StepEdge" }
+        },
+        "status": { "type": "string" },
+        "successCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false
@@ -29,60 +43,105 @@
       "type": "object",
       "required": ["id", "projectId", "stepType", "description", "phases", "phaseEdges"],
       "properties": {
-        "id": {"type": "string"},
-        "projectId": {"type": "string"},
-        "stepType": {"type": "string"},
-        "description": {"type": "string"},
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "stepType": { "type": "string" },
+        "description": { "type": "string" },
         "phases": {
           "type": "array",
-          "items": {"$ref": "#/$defs/Phase"}
+          "items": { "$ref": "#/$defs/Phase" },
+          "minItems": 1
         },
         "phaseEdges": {
           "type": "array",
-          "items": {"$ref": "#/$defs/PhaseEdge"}
+          "items": { "$ref": "#/$defs/PhaseEdge" }
+        },
+        "status": { "type": "string" },
+        "successCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false
     },
     "Phase": {
       "type": "object",
-      "required": ["id", "stepId", "phaseType", "rootNodeId", "nodes", "edges"],
+      "required": ["id", "stepId", "phaseType", "description", "rootNodeId", "nodes", "edges"],
       "properties": {
-        "id": {"type": "string"},
-        "stepId": {"type": "string"},
+        "id": { "type": "string" },
+        "stepId": { "type": "string" },
         "phaseType": {
           "type": "string",
           "enum": ["diverge", "converge", "verify", "commit"]
         },
-        "rootNodeId": {"type": "string"},
+        "description": { "type": "string" },
+        "rootNodeId": { "type": "string" },
         "nodes": {
           "type": "array",
-          "items": {"$ref": "#/$defs/Node"}
+          "items": { "$ref": "#/$defs/Node" },
+          "minItems": 1
         },
         "edges": {
           "type": "array",
-          "items": {"$ref": "#/$defs/Edge"}
+          "items": { "$ref": "#/$defs/Edge" }
+        },
+        "status": { "type": "string" },
+        "successCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": false
     },
     "Node": {
       "type": "object",
-      "required": ["id", "phaseId"],
+      "required": ["id", "phaseId", "nodeType", "title", "description"],
       "properties": {
-        "id": {"type": "string"},
-        "phaseId": {"type": "string"}
+        "id": { "type": "string" },
+        "phaseId": { "type": "string" },
+        "nodeType": {
+          "type": "string",
+          "enum": ["root", "work"]
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "successCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       },
       "additionalProperties": false
     },
     "Edge": {
       "type": "object",
-      "required": ["id", "phaseId", "fromNodeId", "toNodeId"],
+      "required": ["id", "phaseId", "fromNodeId", "toNodeId", "edgeType"],
       "properties": {
-        "id": {"type": "string"},
-        "phaseId": {"type": "string"},
-        "fromNodeId": {"type": "string"},
-        "toNodeId": {"type": "string"}
+        "id": { "type": "string" },
+        "phaseId": { "type": "string" },
+        "fromNodeId": { "type": "string" },
+        "toNodeId": { "type": "string" },
+        "edgeType": {
+          "type": "string",
+          "enum": ["flow", "dependency"]
+        },
+        "description": { "type": "string" },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       },
       "additionalProperties": false
     },
@@ -90,10 +149,10 @@
       "type": "object",
       "required": ["id", "projectId", "fromStepId", "toStepId"],
       "properties": {
-        "id": {"type": "string"},
-        "projectId": {"type": "string"},
-        "fromStepId": {"type": "string"},
-        "toStepId": {"type": "string"}
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "fromStepId": { "type": "string" },
+        "toStepId": { "type": "string" }
       },
       "additionalProperties": false
     },
@@ -101,10 +160,10 @@
       "type": "object",
       "required": ["id", "stepId", "fromPhaseId", "toPhaseId"],
       "properties": {
-        "id": {"type": "string"},
-        "stepId": {"type": "string"},
-        "fromPhaseId": {"type": "string"},
-        "toPhaseId": {"type": "string"}
+        "id": { "type": "string" },
+        "stepId": { "type": "string" },
+        "fromPhaseId": { "type": "string" },
+        "toPhaseId": { "type": "string" }
       },
       "additionalProperties": false
     }

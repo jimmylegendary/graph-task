@@ -5,9 +5,10 @@
     {
       "id": "phase-1",
       "name": "graph-task-core",
-      "goal": "Define the graph-task schema, expected-result contract, and CLI/OpenClaw skill behavior for human-guided execution.",
+      "goal": "Define the graph-task schema, rules, expected-result contract, and CLI/OpenClaw skill behavior for human-guided execution.",
       "scope_in": [
         "graph task schema",
+        "graph task high-level structural rules",
         "node/dependency/status model",
         "expected vs actual result contract",
         "CLI for init/next/result/branch/retry/render",
@@ -22,6 +23,7 @@
       "deliverables": [
         "SKILL.md",
         "references/schema.graph-task.json",
+        "references/rules.graph-task.md",
         "references/expected-result.schema.json",
         "references/test-levels.json",
         "scripts/graph_task.py",
