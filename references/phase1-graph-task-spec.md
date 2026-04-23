@@ -3,16 +3,16 @@
 ## Purpose
 Phase 1 is the smallest meaningful implementation of the reset direction chosen on 2026-04-23.
 
-Its job is to prove that we can represent work as an explicit graph, mutate that graph honestly from results, and inspect the state clearly before adding richer visualization or unattended autonomy.
+Its job is to prove that we can represent work as an explicit graph, update that graph directly, and inspect the state clearly before adding richer visualization or unattended autonomy.
 
 This phase is **not** about full overnight automation.
-It is about locking the canonical semantics for `graph-task`.
+It is about locking a usable graph-task skill + CLI contract.
 
 ## Validation question
-Can we define a graph-task model and command surface that is:
-- explicit enough for honest state mutation
+Can we define and use a graph-task model that is:
+- explicit enough for honest human-readable state
 - inspectable enough for human review
-- narrow enough to implement quickly as an OpenClaw skill + CLI
+- simple enough to use directly from a CLI and OpenClaw skill
 - stable enough to become the canonical state layer for later Obsidian and autonomous execution phases
 
 ## Out of scope
@@ -22,22 +22,19 @@ Do not build these in Phase 1:
 - rich graph visualization
 - multi-user or multi-tenant concerns
 - generalized workflow DSL
-- hidden LLM replanning with no persisted rationale
+- hidden mutation engines or transition engines
 
 ## Deliverable
 A first usable `graph-task` skill/package with:
 - canonical persisted schema
 - separately documented high-level structural rules
-- file-based run layout
-- OpenClaw skill usage surface
-- CLI commands for create/read/update/mutate flows
-- deterministic-first transition rules
-- explicit expected-vs-actual result ingestion
-- minimal query/report rendering for human inspection
+- a minimal expected-vs-actual result record contract
+- a bundled CLI for direct graph editing
+- an OpenClaw skill surface
+- summary rendering
+- independent tests for CLI + skill packaging
 
 ## Core references
-
-The high-level graph contract is now split into two references:
 
 - `references/schema.graph-task.json`
   - entity structure
@@ -48,48 +45,57 @@ The high-level graph contract is now split into two references:
   - structural rules
   - ownership rules
   - connectivity rules
-  - root-node rules
-  - repetition / history-preservation rules
+  - result-record rules
+  - current simplifications
+
+- `references/result-record.schema.json`
+  - expected-vs-actual writeback record
+
+- `references/cli.graph-task.md`
+  - minimal CLI command surface
 
 Supporting references:
 - `references/expected-result.schema.json`
 - `references/phases.json`
 - `references/test-levels.json`
 
+## Current simplifications
+
+1. Use one shared minimal status vocabulary everywhere:
+   - `pending`
+   - `active`
+   - `done`
+   - `blocked`
+   - `cancelled`
+2. Do not introduce a separate mutation layer in this stage.
+3. Edit the graph directly through explicit CLI commands.
+4. Record expected-vs-actual execution history on `node.results`.
+5. If the structure changes, append new Steps / Phases / Nodes / Edges rather than deleting prior history whenever possible.
+
 ## High-level hierarchy
 
 `graph-task` currently freezes this hierarchy first:
 
-- `Project` = graph of `Step`
-- `Step` = graph of `Phase`
-- `Phase` = rooted graph of `Node` and `Edge`
+- `project` = graph of `step`
+- `step` = graph of `phase`
+- `phase` = rooted graph of `node` and `edge`
 
 Current high-level semantics:
-- `Step` includes `stepType` and `description`
-- `Phase` includes `phaseType` and `description`
-- `Phase.phaseType` uses the functional modes `diverge | converge | verify | commit`
-- a Step may repeat `diverge`, `converge`, and `verify`
-- a Step may contain at most one `commit` Phase
-- lower-level execution semantics are defined after the high-level graph contract is locked
+- `step` includes `stepType` and `description`
+- `phase` includes `phaseType` and `description`
+- `phase.phaseType` uses the functional modes `diverge | converge | verify | commit`
+- a step may repeat `diverge`, `converge`, and `verify`
+- a step may contain at most one `commit` phase
 
-## Canonical run layout
-Each run should create a directory from the beginning with at least:
+## Minimal run layout
+A usable run should have at least:
 
-- `objective.json`
-- `plan.json`
 - `graph.json`
-- `events.jsonl`
 - `summary.md`
 
-Optional derived files allowed in Phase 1:
-- `report.json`
-- `report.md`
-- `artifacts/`
-
 Rules:
-- `graph.json` is the canonical snapshot
-- `events.jsonl` is the append-only mutation history
-- `summary.md` is the human-readable state summary
+- `graph.json` is the canonical state
+- `summary.md` is the human-readable inspection surface
 
 ## Human inspection surface
 Phase 1 must support basic human verification without external visualization.
@@ -99,8 +105,7 @@ Minimum inspection outputs:
 - step graph summary
 - selected step's phase graph summary
 - selected phase's rooted node graph summary
-- recent event timeline
-- expected-vs-actual summary for latest completed/failed nodes
+- latest expected-vs-actual result records
 
 This can be plain text or markdown.
 That is enough for Phase 1.
@@ -113,15 +118,15 @@ Phase 1 high-level contract is complete when all of the following are true:
 3. Each Step can represent what kind of Step it is via `stepType`.
 4. Each Step can store a human-readable `description`.
 5. Each Step can contain Phases connected by explicit `phaseEdges`.
-6. Each Phase is modeled as a rooted internal Node graph.
+6. Each Phase is modeled as a rooted internal node graph.
 7. Repeated `diverge`, `converge`, and `verify` Phases can be represented without deleting history.
-8. Project, Step, and Phase boundaries are explicit enough for future CLI, skill, and visualization work.
+8. A work node can store expected-vs-actual result records directly.
+9. The bundled CLI and skill can be tested independently.
 
 ## Recommended next implementation order
 1. freeze the high-level schema
 2. freeze the high-level rules
-3. freeze minimum field semantics for Project / Step / Phase / Node / Edge
-4. define transition and mutation rules
-5. define expected-vs-actual result ingestion
-6. define summary/report rendering
-7. smoke-test on at least one happy-path and one divergence-path scenario
+3. define the minimal result-record contract
+4. implement the CLI surface
+5. implement the skill surface
+6. smoke-test on at least one happy-path graph flow

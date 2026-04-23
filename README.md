@@ -3,32 +3,35 @@
 A compact staged system for graph-based task execution.
 
 Current direction:
-1. graph-task core: canonical schema, expected-vs-actual contract, CLI/OpenClaw skill behavior
+1. graph-task core: canonical schema, direct-edit CLI/skill, expected-vs-actual result contract
 2. Obsidian-based visualization and semantic testing
 3. autonomous completion using existing execution tools
 
 ## Current focus
-Phase 1: freeze the canonical graph-task semantics before richer visualization or unattended automation.
+Phase 1: freeze a usable graph-task skill + CLI contract before richer visualization or unattended automation.
 
 ## High-level contract
 
 `graph-task` currently freezes this hierarchy first:
 
-- `Project` = graph of `Step`
-- `Step` = graph of `Phase`
-- `Phase` = rooted graph of `Node` and `Edge`
+- `project` = graph of `step`
+- `step` = graph of `phase`
+- `phase` = rooted graph of `node` and `edge`
 
 Notes:
-- `Step` includes `stepType` and `description`
-- `Phase` includes `phaseType` and `description`
-- `Phase` uses the functional modes `diverge | converge | verify | commit`
-- a Step may repeat `diverge`, `converge`, and `verify`
-- a Step may contain at most one `commit` Phase
+- `step` includes `stepType` and `description`
+- `phase` includes `phaseType` and `description`
+- `phase` uses the functional modes `diverge | converge | verify | commit`
+- a step may repeat `diverge`, `converge`, and `verify`
+- a step may contain at most one `commit` phase
+- the current stage uses one shared status vocabulary and direct graph edits instead of a separate mutation engine
 
-## References
+## Main files
 
-- `references/phase1-graph-task-spec.md` — Phase 1 overview
+- `SKILL.md` — skill instructions
+- `scripts/graph_task.py` — bundled CLI
 - `references/schema.graph-task.json` — high-level entity schema
 - `references/rules.graph-task.md` — high-level structural rules
-- `references/expected-result.schema.json` — expected-vs-actual result contract
-- `references/phases.json` — staged roadmap
+- `references/result-record.schema.json` — result writeback shape
+- `references/cli.graph-task.md` — CLI command surface
+- `tests/test_graph_task_cli.py` — independent smoke tests

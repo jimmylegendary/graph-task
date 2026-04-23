@@ -5,16 +5,18 @@
     {
       "id": "phase-1",
       "name": "graph-task-core",
-      "goal": "Define the graph-task schema, rules, expected-result contract, and CLI/OpenClaw skill behavior for human-guided execution.",
+      "goal": "Define the graph-task schema, rules, result-record contract, direct-edit CLI, and OpenClaw skill behavior for human-guided execution.",
       "scope_in": [
         "graph task schema",
         "graph task high-level structural rules",
-        "node/dependency/status model",
-        "expected vs actual result contract",
-        "CLI for init/next/result/branch/retry/render",
-        "OpenClaw-readable skill instructions"
+        "shared status vocabulary",
+        "expected vs actual result-record contract",
+        "direct-edit CLI for init/show/add/set-status/write-result/summary/validate",
+        "OpenClaw-readable skill instructions",
+        "independent packaging and CLI smoke tests"
       ],
       "scope_out": [
+        "mutation engine",
         "heartbeat automation",
         "lobster orchestration",
         "full unattended execution",
@@ -24,19 +26,23 @@
         "SKILL.md",
         "references/schema.graph-task.json",
         "references/rules.graph-task.md",
+        "references/result-record.schema.json",
+        "references/cli.graph-task.md",
         "references/expected-result.schema.json",
         "references/test-levels.json",
         "scripts/graph_task.py",
+        "tests/test_graph_task_cli.py",
         "examples/minimal-project/"
       ],
       "expected_results": [
-        "OpenClaw can inspect a graph, identify executable next work, and record outcomes structurally.",
-        "A human can review graph state and verify that transitions match the declared contract."
+        "OpenClaw can inspect a graph, add or connect structure directly, and record node outcomes structurally.",
+        "A human can review graph state and verify that the CLI leaves an honest inspectable graph behind.",
+        "The skill packages cleanly and the bundled smoke tests pass."
       ],
       "tests": [
-        "unit-graph-transition",
-        "unit-result-validation",
+        "unit-graph-validation",
         "integrated-cli-run",
+        "integrated-skill-package",
         "closed-human-guided-graph-walk"
       ]
     },
