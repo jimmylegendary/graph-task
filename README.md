@@ -10,6 +10,19 @@ Current direction:
 ## Current focus
 Phase 1: freeze the canonical graph-task semantics before richer visualization or unattended automation.
 
+## High-level schema
+
+`graph-task` currently freezes this hierarchy first:
+
+- `Project` = graph of `Step`
+- `Step` = graph of `Phase`
+- `Phase` = rooted graph of `Node` and `Edge`
+
+Notes:
+- `Step` includes `stepType` and `description`
+- `Phase` uses the functional modes `diverge | converge | verify | commit`
+- lower-level semantics for each entity are defined after the high-level graph shape is locked
+
 See:
 - `references/phase1-graph-task-spec.md`
 - `references/schema.graph-task.json`

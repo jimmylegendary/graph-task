@@ -34,55 +34,139 @@ A first usable `graph-task` skill/package with:
 - explicit expected-vs-actual result ingestion
 - minimal query/report rendering for human inspection
 
-## Core model
+## Core high-level schema
 
-### 1. Graph
-A graph is the canonical state object for a work run.
+`graph-task` should treat work as a hierarchical graph with exactly these top-level concepts:
+- `Project`
+- `Step`
+- `Phase`
+- `Node`
+- `Edge`
 
-It contains:
-- graph identity and metadata
-- objective
-- plan summary
-- nodes
-- edges / dependencies
-- branch lineage
-- policy summary
-- event history references
-- current graph status
+The high-level shape is:
 
-The graph is the source of truth.
-Other surfaces may render or edit it later, but should not replace it.
+- `Project` = graph of `Step`
+- `Step` = graph of `Phase`
+- `Phase` = rooted graph of `Node` and `Edge`
 
-### 2. Node
-A node is the minimum executable or reviewable unit.
+### 1. Project
+The top-level graph container.
 
-Each node should answer:
-- what is supposed to happen
-- what must be true before it can start
-- what happened in reality
-- what artifacts came out
-- whether the path should continue, retry, branch, replan, or stop
+Responsibilities:
+- contain all steps for a work graph
+- contain step-to-step connectivity
+- act as the top-level inspection boundary
 
-### 3. Observation/result
-A result is the structured write-back from execution or review.
-It must preserve the difference between:
-- expected outcome
-- actual outcome
-- evidence/artifacts
-- interpretation
-- severity/escalation
+Minimum high-level shape:
+- `id`
+- `steps[]`
+- `stepEdges[]`
 
-### 4. Transition
-A transition is an explicit graph mutation with a reason.
-Every state change should be representable as an event.
+### 2. Step
+A project-level work unit for one kind of work.
 
-### 5. Branch
-A branch is an explicit alternative path created because:
-- the original path failed
-- a materially different tactic is needed
-- exploration is intentionally diverging
+A step should answer:
+- what kind of work this step is for
+- what this step is about
+- which phases belong to this step
+- how those phases connect
 
-Branches must never be implicit.
+Important semantic rule:
+- a `Step` is not the same as a `Phase`
+- phases inside a step are different functional modes for the same step-level work
+- the canonical phase types are `diverge`, `converge`, `verify`, `commit`
+
+Minimum high-level shape:
+- `id`
+- `projectId`
+- `stepType`
+- `description`
+- `phases[]`
+- `phaseEdges[]`
+
+### 3. Phase
+A step-internal bounded graph unit.
+
+Responsibilities:
+- contain the actual node graph for one functional mode
+- remain internally inspectable as a complete rooted subgraph
+- allow selective visualization and filtering later
+
+Structural rules:
+- every phase must have exactly one root node
+- every phase is a complete internal graph
+- phase-to-phase connectivity should be modeled explicitly inside the parent step
+
+Minimum high-level shape:
+- `id`
+- `stepId`
+- `phaseType`
+- `rootNodeId`
+- `nodes[]`
+- `edges[]`
+
+Canonical phase types in this model:
+- `diverge`
+- `converge`
+- `verify`
+- `commit`
+
+### 4. Node
+The smallest graph vertex inside a phase.
+
+At this level, node semantics are intentionally not expanded yet.
+The high-level schema only needs node identity and phase membership.
+
+Minimum high-level shape:
+- `id`
+- `phaseId`
+
+### 5. Edge
+The directed connection between nodes inside a phase.
+
+At this level, edge semantics are intentionally not expanded yet.
+The high-level schema only needs identity, phase membership, and endpoints.
+
+Minimum high-level shape:
+- `id`
+- `phaseId`
+- `fromNodeId`
+- `toNodeId`
+
+### 6. StepEdge
+An explicit connection between two steps inside a project.
+
+Minimum high-level shape:
+- `id`
+- `projectId`
+- `fromStepId`
+- `toStepId`
+
+### 7. PhaseEdge
+An explicit connection between two phases inside a step.
+
+Minimum high-level shape:
+- `id`
+- `stepId`
+- `fromPhaseId`
+- `toPhaseId`
+
+## High-level structural rules
+- a project contains steps and step edges
+- a step contains phases and phase edges
+- a phase contains nodes and edges
+- a phase always has exactly one root node
+- a node edge connects only nodes in the same phase
+- a phase edge connects only phases in the same step
+- a step edge connects only steps in the same project
+
+## Why this shape
+This hierarchy is the minimum needed to support:
+- honest append/refine graph evolution without deleting history
+- phase-level collapse/expand visualization later
+- step-level grouping by work purpose
+- explicit separation between step-level work kind and phase-level functional mode
+- future extension of lower-level semantics without changing the top-level graph model
 
 ## Canonical run layout
 Each run should create a directory from the beginning with at least:
@@ -103,312 +187,25 @@ Rule:
 - `events.jsonl` is the append-only mutation history
 - `summary.md` is the human-readable state summary
 
-## Schema draft
+## Phase 1 note on detail level
+Phase 1 should freeze the high-level graph shape first.
+Detailed internal semantics for Project, Step, Phase, Node, and Edge can be refined after this shape is accepted.
 
-### objective.json
-Minimum fields:
-- `id`
-- `title`
-- `goal`
-- `success_definition`
-- `constraints`
-- `created_at`
-- `updated_at`
-
-### plan.json
-Minimum fields:
-- `id`
-- `objective_id`
-- `summary`
-- `assumptions`
-- `strategy`
-- `completion_shape`
-- `created_at`
-- `updated_at`
-
-### graph.json
-Minimum top-level fields:
-- `graph_id`
-- `objective_id`
-- `plan_id`
-- `status`
-- `nodes`
-- `edges`
-- `branches`
-- `policy`
-- `created_at`
-- `updated_at`
-
-### Node schema
-Minimum node fields:
-- `id`
-- `title`
-- `kind`
-- `status`
-- `depends_on`
-- `expected_outcome`
-- `actual_outcome`
-- `artifacts`
-- `attempt_count`
-- `branch_id`
-- `created_at`
-- `updated_at`
-
-Recommended Phase 1 additions:
-- `description`
-- `acceptance_criteria`
-- `failure_mode`
-- `owner`
-- `tags`
-- `escalation`
-
-### Edge schema
-Minimum edge fields:
-- `from`
-- `to`
-- `type`
-
-Allowed Phase 1 edge types:
-- `depends_on`
-- `branch_from`
-- `replans`
-- `supersedes`
-
-### Branch schema
-Minimum fields:
-- `id`
-- `parent_branch_id`
-- `parent_node_id`
-- `reason`
-- `status`
-- `created_at`
-
-### Event schema
-Each line in `events.jsonl` should contain at least:
-- `id`
-- `timestamp`
-- `entity_type`
-- `entity_id`
-- `verb`
-- `reason`
-- `payload`
-
-## Status model
-
-### Graph statuses
-- `draft`
-- `active`
-- `paused`
-- `completed`
-- `canceled`
-- `failed`
-
-### Node statuses
-- `planned`
-- `ready`
-- `running`
-- `blocked`
-- `done`
-- `failed`
-- `canceled`
-- `superseded`
-
-### Branch statuses
-- `open`
-- `paused`
-- `closed`
-- `superseded`
-
-## Transition vocabulary
-Required verbs:
-- `seed`
-- `start`
-- `complete`
-- `fail`
-- `retry`
-- `branch`
-- `cancel`
-- `replan`
-- `escalate`
-- `resume`
-- `supersede`
-
-## Decision model
-Phase 1 should be deterministic-first.
-
-Meaning:
-- basic graph state transitions should come from explicit rules
-- LLM help may propose plans, summaries, or branch rationale
-- but the mutation contract must stay policy-checked and inspectable
-
-Recommendation:
-- allow LLM-proposed mutation suggestions later
-- keep actual mutation application rule-driven in Phase 1
-
-## Result ingestion contract
-A node result write-back should include:
-- `node_id`
-- `attempt`
-- `result_status`
-- `expected_outcome`
-- `actual_outcome`
-- `artifacts`
-- `notes`
-- `escalation_level`
-- `escalation_message`
-- `recommended_next_action`
-
-Allowed `result_status` values:
-- `done`
-- `failed`
-- `blocked`
-- `canceled`
-
-Allowed `recommended_next_action` values:
-- `continue`
-- `retry`
-- `branch`
-- `replan`
-- `cancel`
-- `escalate`
-- `complete`
-
-Important rule:
-The engine stores both the raw result and the applied mutation.
-A recommendation is not itself a mutation.
-
-## Escalation model
-Severity levels:
-- `info`
-- `warning`
-- `blocking`
-- `critical`
-
-Phase 1 rule:
-- `info` and `warning` can coexist with forward progress
-- `blocking` pauses the affected path until a valid next mutation exists
-- `critical` pauses the graph and requires human review
-
-## Minimal policy rules
-
-### Ready rule
-A node becomes `ready` when all `depends_on` nodes are `done`.
-
-### Completion rule
-When a node result is ingested as `done`:
-- mark the node `done`
-- record actual outcome and artifacts
-- evaluate downstream nodes for `ready`
-- if no remaining open nodes exist, mark graph `completed`
-
-### Failure rule
-When a node result is ingested as `failed`:
-- mark the node `failed`
-- require one of: `retry`, `branch`, `replan`, `cancel`, `escalate`
-- never silently continue as if success occurred
-
-### Retry rule
-Retry should:
-- increment `attempt_count`
-- preserve prior failure history in events
-- return the same node to `ready` or create a retry-attempt record
-
-### Branch rule
-Branch should:
-- create a new branch record
-- create one or more new nodes on that branch
-- preserve lineage to the parent node/path
-- optionally supersede future nodes on the failed path
-
-### Replan rule
-Replan should:
-- preserve history
-- write explicit rationale
-- mutate future graph structure, not erase prior events
-
-### Cancel rule
-Cancel should:
-- explicitly mark affected nodes/branch/graph as canceled
-- include a reason
-- never masquerade as completion
-
-## CLI surface
-Phase 1 CLI should stay small.
-
-Recommended commands:
-- `graph-task init`
-- `graph-task seed`
-- `graph-task show`
-- `graph-task list-ready`
-- `graph-task ingest-result`
-- `graph-task decide-next`
-- `graph-task retry`
-- `graph-task branch`
-- `graph-task replan`
-- `graph-task cancel`
-- `graph-task summarize`
-
-### Command expectations
-`graph-task init`
-- creates run directory and required files
-- writes objective + initial plan shell
-
-`graph-task seed`
-- creates initial nodes/edges into `graph.json`
-- appends seed event(s)
-
-`graph-task show`
-- renders current graph or a specific node/branch
-
-`graph-task list-ready`
-- returns nodes currently executable under policy
-
-`graph-task ingest-result`
-- records structured result write-back
-- applies policy-allowed mutation(s)
-- appends event(s)
-- refreshes summary
-
-`graph-task decide-next`
-- reports the valid next action set for a node/branch/graph
-- should explain why
-
-`graph-task retry`
-- performs explicit retry mutation
-
-`graph-task branch`
-- performs explicit branch mutation
-
-`graph-task replan`
-- updates future structure with rationale preserved
-
-`graph-task cancel`
-- cancels node/branch/graph explicitly
-
-`graph-task summarize`
-- regenerates `summary.md`
-
-## OpenClaw skill surface
-The skill should primarily be used when the operator needs to:
-- initialize a graph-backed work run
-- inspect current graph state
-- mutate the graph after a result or observation
-- decide next legal moves
-- preserve resumable state for later review or automation
-
-The skill should frame `graph-task` as:
-- canonical state layer now
-- visualization substrate for Obsidian later
-- execution substrate contract for lobster/heartbeat later
+The immediate objective is to lock:
+- hierarchy
+- containment boundaries
+- connection boundaries
+- root-node rule for phases
+- step-level type + description support
 
 ## Human inspection surface
 Phase 1 must support basic human verification without external visualization.
 
 Minimum inspection outputs:
-- current graph status
-- ready nodes
-- blocked/failed nodes
-- branch lineage summary
+- current project structure
+- step graph summary
+- selected step's phase graph summary
+- selected phase's rooted node graph summary
 - recent event timeline
 - expected-vs-actual summary for latest completed/failed nodes
 
@@ -416,44 +213,20 @@ This can be plain text or markdown.
 That is enough for Phase 1.
 
 ## Acceptance criteria
-Phase 1 is complete when all of the following are true:
+Phase 1 high-level schema is complete when all of the following are true:
 
-1. A new graph-task run can be initialized from scratch.
-2. The required files are present immediately.
-3. An initial graph can be seeded and inspected.
-4. A result can be ingested with explicit expected-vs-actual fields.
-5. The graph mutates honestly under deterministic rules.
-6. Retry, branch, replan, and cancel are explicit commands, not hidden behavior.
-7. A human can inspect current state from generated text/markdown alone.
-8. The resulting schema is stable enough for Obsidian mapping in Phase 2.
-
-## Non-acceptance signals
-Phase 1 is not complete if:
-- the graph cannot be reconstructed from persisted files
-- transitions happen without explicit event history
-- branch lineage is ambiguous
-- expected-vs-actual is hand-wavy instead of structured
-- command surface is so broad that semantics are still unclear
-- automation concerns distort the state model before human verification works
-
-## Phase boundary to Phase 2
-Only move to Phase 2 after Phase 1 proves:
-- canonical graph schema is usable
-- mutation semantics are understandable
-- human inspection is sufficient to catch semantic mistakes
-
-Phase 2 can then treat Obsidian as:
-- graph browser
-- review/edit surface
-- semantic debugging tool
-
-Not as the canonical state store.
+1. A graph-task project can represent steps explicitly.
+2. Each step can represent what kind of step it is via `stepType`.
+3. Each step can store a human-readable `description`.
+4. Each step can contain phases connected by explicit phase edges.
+5. Each phase is modeled as a rooted internal node graph.
+6. Project, step, and phase boundaries are explicit enough for future visualization.
+7. Lower-level semantic detail can be added later without changing the high-level hierarchy.
 
 ## Recommended next implementation order
-1. freeze JSON schema draft
-2. implement run initialization
-3. implement graph seeding
-4. implement result ingestion
-5. implement deterministic transition rules
-6. implement summary/report rendering
-7. smoke-test on at least one happy-path and one divergence-path scenario
+1. freeze the high-level schema
+2. freeze minimum field semantics for Project / Step / Phase / Node / Edge
+3. define transition and mutation rules
+4. define expected-vs-actual result ingestion
+5. define summary/report rendering
+6. smoke-test on at least one happy-path and one divergence-path scenario
