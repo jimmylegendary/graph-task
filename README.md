@@ -34,4 +34,6 @@ Notes:
 - `references/rules.graph-task.md` — high-level structural rules
 - `references/result-record.schema.json` — result writeback shape
 - `references/cli.graph-task.md` — CLI command surface
+- `examples/minimal-project/` — smallest valid example with one result record
+- `examples/self-dogfood-project/` — richer dogfood example with repeated phases, step edges, and recorded findings
 - `tests/test_graph_task_cli.py` — independent smoke tests

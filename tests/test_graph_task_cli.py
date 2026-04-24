@@ -267,6 +267,17 @@ class GraphTaskCliTests(unittest.TestCase):
             validate = self.run_cli("validate", str(run_dir))
             self.assertIn("VALID", validate.stdout)
 
+    def test_self_dogfood_example_validates(self):
+        run_dir = REPO_ROOT / "examples" / "self-dogfood-project"
+
+        validate = self.run_cli("validate", str(run_dir))
+        self.assertIn("VALID", validate.stdout)
+
+        summary = self.run_cli("show", str(run_dir))
+        self.assertIn("Dogfood graph-task on its own repo", summary.stdout)
+        self.assertIn("step-self-dogfood", summary.stdout)
+        self.assertIn("step-followups", summary.stdout)
+
     def test_skill_packages_cleanly(self):
         with tempfile.TemporaryDirectory() as tmp:
             skill_copy = Path(tmp) / "graph-task"
