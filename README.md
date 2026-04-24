@@ -10,6 +10,10 @@ Current direction:
 ## Current focus
 Phase 2 baseline: project Phase 1 graph-task runs into an Obsidian-friendly markdown vault for visualization and semantic testing, while keeping `graph.json` as the canonical state.
 
+Recent additions:
+- `init` can target a git-backed repo checkout so each project run is created under its own top-level folder inside a shared vault/work repo.
+- repo-backed runs now have manual sync helpers: `git-status`, `git-pull`, `git-push`, and `git-sync`.
+
 ## High-level contract
 
 `graph-task` currently freezes this hierarchy first:

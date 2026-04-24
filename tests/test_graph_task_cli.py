@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,23 @@ class GraphTaskCliTests(unittest.TestCase):
             text=True,
             capture_output=True,
             check=check,
+        )
+
+    def run_git(self, *args: str, cwd: Path, check: bool = True) -> subprocess.CompletedProcess:
+        env = {
+            **os.environ,
+            "GIT_AUTHOR_NAME": "Graph Task Tests",
+            "GIT_AUTHOR_EMAIL": "graph-task-tests@example.com",
+            "GIT_COMMITTER_NAME": "Graph Task Tests",
+            "GIT_COMMITTER_EMAIL": "graph-task-tests@example.com",
+        }
+        return subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=check,
+            env=env,
         )
 
     def test_end_to_end_cli_flow(self):
@@ -297,6 +315,120 @@ class GraphTaskCliTests(unittest.TestCase):
             self.assertIn("[[phases/step-self-dogfood__phase-diverge-execution-2|phase-diverge-execution-2]]", step_text)
             self.assertIn("[[nodes/step-self-dogfood__phase-diverge-execution-2__node-build-self-dogfood-example|node-build-self-dogfood-example]]", phase_text)
             self.assertIn("Strengths: repeated phases, step edges, and result records compose cleanly", node_text)
+
+    def test_init_can_target_git_repo_checkout_with_project_subdir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            remote_repo = tmp_path / "remote.git"
+            seed_repo = tmp_path / "seed"
+            checkout_dir = tmp_path / "checkout"
+
+            self.run_git("init", "--bare", str(remote_repo), cwd=tmp_path)
+            seed_repo.mkdir()
+            self.run_git("init", "-b", "main", cwd=seed_repo)
+            (seed_repo / "README.md").write_text("# vault\n", encoding="utf-8")
+            self.run_git("add", ".", cwd=seed_repo)
+            self.run_git("commit", "-m", "seed", cwd=seed_repo)
+            self.run_git("remote", "add", "origin", str(remote_repo), cwd=seed_repo)
+            self.run_git("push", "-u", "origin", "main", cwd=seed_repo)
+
+            result = self.run_cli(
+                "init",
+                str(checkout_dir),
+                "--repo-url",
+                str(remote_repo),
+                "--repo-branch",
+                "main",
+                "--id",
+                "Demo Project",
+                "--title",
+                "Demo project",
+                "--description",
+                "Repo-backed init",
+                "--goal",
+                "Write under a project-specific subdirectory",
+            )
+
+            project_dir = checkout_dir / "demo-project"
+            graph_path = project_dir / "graph.json"
+            self.assertTrue(graph_path.exists(), msg=result.stdout + result.stderr)
+            self.assertIn("Repo-backed project directory", result.stdout)
+
+            graph = json.loads(graph_path.read_text(encoding="utf-8"))
+            self.assertEqual(graph["project"]["id"], "Demo Project")
+            self.assertEqual(graph["project"]["repo"]["url"], str(remote_repo))
+            self.assertEqual(graph["project"]["repo"]["branch"], "main")
+            self.assertEqual(graph["project"]["repo"]["projectDir"], "demo-project")
+
+    def test_git_sync_commands_work_for_repo_backed_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            remote_repo = tmp_path / "remote.git"
+            seed_repo = tmp_path / "seed"
+            second_clone = tmp_path / "second"
+            checkout_dir = tmp_path / "checkout"
+
+            self.run_git("init", "--bare", str(remote_repo), cwd=tmp_path)
+            seed_repo.mkdir()
+            self.run_git("init", "-b", "main", cwd=seed_repo)
+            (seed_repo / "README.md").write_text("# vault\n", encoding="utf-8")
+            self.run_git("add", ".", cwd=seed_repo)
+            self.run_git("commit", "-m", "seed", cwd=seed_repo)
+            self.run_git("remote", "add", "origin", str(remote_repo), cwd=seed_repo)
+            self.run_git("push", "-u", "origin", "main", cwd=seed_repo)
+
+            self.run_cli(
+                "init",
+                str(checkout_dir),
+                "--repo-url",
+                str(remote_repo),
+                "--repo-branch",
+                "main",
+                "--id",
+                "Sync Demo",
+                "--title",
+                "Sync demo",
+                "--description",
+                "Repo-backed sync test",
+                "--goal",
+                "Exercise git sync commands",
+            )
+
+            run_dir = checkout_dir / "sync-demo"
+            status = self.run_cli("git-status", str(run_dir))
+            self.assertIn("sync: in-sync", status.stdout)
+
+            self.run_cli(
+                "add-step",
+                str(run_dir),
+                "--id",
+                "step-1",
+                "--step-type",
+                "implementation",
+                "--description",
+                "Create a local change",
+            )
+            status_after_change = self.run_cli("git-status", str(run_dir))
+            self.assertIn("dirty: yes", status_after_change.stdout)
+
+            push = self.run_cli("git-push", str(run_dir), "--message", "Add first step")
+            self.assertIn("Committed and pushed changes", push.stdout)
+
+            self.run_git("clone", "--branch", "main", str(remote_repo), str(second_clone), cwd=tmp_path)
+            (second_clone / "shared.md").write_text("hello\n", encoding="utf-8")
+            self.run_git("add", ".", cwd=second_clone)
+            self.run_git("commit", "-m", "Add shared note", cwd=second_clone)
+            self.run_git("push", "origin", "HEAD:main", cwd=second_clone)
+
+            status_behind = self.run_cli("git-status", str(run_dir))
+            self.assertIn("sync: behind", status_behind.stdout)
+
+            pull = self.run_cli("git-pull", str(run_dir))
+            self.assertIn("Pulled latest changes", pull.stdout)
+            self.assertTrue((checkout_dir / "shared.md").exists())
+
+            sync = self.run_cli("git-sync", str(run_dir))
+            self.assertIn("Pulled and pushed changes", sync.stdout)
 
     def test_skill_packages_cleanly(self):
         with tempfile.TemporaryDirectory() as tmp:

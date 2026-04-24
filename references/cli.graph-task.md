@@ -32,6 +32,18 @@ python3 scripts/graph_task.py init ./runs/demo \
   --goal "Reach a validated state"
 ```
 
+To initialize inside a git-backed vault/work repo, point `path` at the desired local checkout directory and pass a repo URL. The CLI will clone or refresh the checkout, then create the run under `<checkout>/<project-id-slug>/`.
+
+```bash
+python3 scripts/graph_task.py init ./tmp/company-vault \
+  --repo-url https://github.company.com/ORG/obsidian-vault.git \
+  --repo-branch main \
+  --id graph-task-demo \
+  --title "Graph task demo" \
+  --description "Repo-backed run" \
+  --goal "Write into a project-specific folder"
+```
+
 ### show
 Render the current graph as a summary or raw JSON.
 
@@ -148,6 +160,44 @@ Export the current run into an Obsidian-friendly markdown vault projection.
 python3 scripts/graph_task.py export-obsidian ./runs/demo ./tmp/demo-vault
 python3 scripts/graph_task.py export-obsidian ./runs/demo ./tmp/demo-vault --force
 ```
+
+### git-status
+Show git sync state for a repo-backed run.
+
+```bash
+python3 scripts/graph_task.py git-status ./tmp/company-vault/graph-task-demo
+```
+
+### git-pull
+Fast-forward pull the backing repo for a repo-backed run. This fails if the repo has uncommitted changes.
+
+```bash
+python3 scripts/graph_task.py git-pull ./tmp/company-vault/graph-task-demo
+```
+
+### git-push
+Push the backing repo. If `--message` is provided, stage and commit all pending repo changes first.
+
+```bash
+python3 scripts/graph_task.py git-push ./tmp/company-vault/graph-task-demo \
+  --message "Update graph-task project"
+```
+
+### git-sync
+Pull first, then optionally commit all pending changes, then push. This is the main manual sync command for repo-backed runs.
+
+```bash
+python3 scripts/graph_task.py git-sync ./tmp/company-vault/graph-task-demo \
+  --message "Sync graph-task project updates"
+```
+
+## Repo-backed run notes
+
+- `--repo-url` on `init` records repo metadata into `project.repo`.
+- Repo sync commands only work for runs initialized that way.
+- The sync commands operate on the whole backing repo, not only one project folder.
+- `git-pull` / `git-sync` intentionally use `pull --ff-only` to avoid hidden merge commits.
+- If the repo is dirty, pull fails on purpose; resolve or commit local changes first.
 
 ## Current simplifications
 

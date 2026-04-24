@@ -2,6 +2,7 @@
 import argparse
 import json
 import shutil
+import subprocess
 import sys
 import uuid
 from collections import deque
@@ -28,6 +29,168 @@ def resolve_paths(path_arg: str) -> tuple[Path, Path]:
         run_dir = raw
         graph_path = run_dir / "graph.json"
     return run_dir, graph_path
+
+
+def slugify_project_dir(value: str) -> str:
+    cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value).strip("-")
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned or "project"
+
+
+def run_git(command: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=True)
+
+
+def prepare_repo_backed_run_dir(base_path: str, repo_url: str, branch: str, project_id: str) -> tuple[Path, Path, dict]:
+    repo_dir = Path(base_path)
+    project_dir_name = slugify_project_dir(project_id)
+
+    if repo_dir.exists() and repo_dir.is_file():
+        raise SystemExit(f"Repo checkout path must be a directory: {repo_dir}")
+
+    if not repo_dir.exists():
+        repo_dir.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            run_git(["git", "clone", "--branch", branch, repo_url, str(repo_dir)])
+        except subprocess.CalledProcessError as exc:
+            message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+            raise SystemExit(f"Failed to clone repo {repo_url}: {message}")
+    else:
+        git_dir = repo_dir / ".git"
+        if not git_dir.exists():
+            raise SystemExit(f"Checkout path exists but is not a git repo: {repo_dir}")
+        try:
+            existing_origin = run_git(["git", "remote", "get-url", "origin"], cwd=repo_dir).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+            raise SystemExit(f"Failed to inspect repo origin at {repo_dir}: {message}")
+        if existing_origin != repo_url:
+            raise SystemExit(
+                f"Repo origin mismatch at {repo_dir}: expected {repo_url}, found {existing_origin}"
+            )
+        try:
+            run_git(["git", "fetch", "origin", branch], cwd=repo_dir)
+            run_git(["git", "checkout", branch], cwd=repo_dir)
+            run_git(["git", "pull", "--ff-only", "origin", branch], cwd=repo_dir)
+        except subprocess.CalledProcessError as exc:
+            message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+            raise SystemExit(f"Failed to refresh repo {repo_dir}: {message}")
+
+    run_dir = repo_dir / project_dir_name
+    graph_path = run_dir / "graph.json"
+    repo_meta = {
+        "url": repo_url,
+        "branch": branch,
+        "projectDir": project_dir_name,
+        "checkoutPath": str(repo_dir),
+    }
+    return run_dir, graph_path, repo_meta
+
+
+def git_error(exc: subprocess.CalledProcessError) -> str:
+    return exc.stderr.strip() or exc.stdout.strip() or str(exc)
+
+
+def project_repo_meta(data: dict) -> dict | None:
+    return project(data).get("repo")
+
+
+def resolve_repo_checkout_dir(run_dir: Path, data: dict) -> tuple[Path, dict]:
+    repo_meta = project_repo_meta(data)
+    if not repo_meta:
+        raise SystemExit("This graph-task run is not repo-backed. Re-initialize with --repo-url first.")
+
+    checkout_path = repo_meta.get("checkoutPath")
+    if checkout_path:
+        repo_dir = Path(checkout_path)
+    else:
+        repo_dir = run_dir.parent
+
+    if not (repo_dir / ".git").exists():
+        raise SystemExit(f"Repo checkout not found at {repo_dir}")
+    return repo_dir, repo_meta
+
+
+def ensure_clean_repo(repo_dir: Path) -> None:
+    try:
+        status = run_git(["git", "status", "--porcelain"], cwd=repo_dir).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to inspect repo status: {git_error(exc)}")
+    if status:
+        raise SystemExit("Repo has uncommitted changes. Commit/stash them before pulling.")
+
+
+def render_repo_status(repo_dir: Path, repo_meta: dict) -> str:
+    branch = repo_meta.get("branch", "main")
+    lines = [
+        f"repo: {repo_dir}",
+        f"origin: {repo_meta.get('url', '')}",
+        f"branch: {branch}",
+    ]
+    try:
+        lines.append(f"head: {run_git(['git', 'rev-parse', '--short', 'HEAD'], cwd=repo_dir).stdout.strip()}")
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to read HEAD: {git_error(exc)}")
+
+    try:
+        dirty = run_git(["git", "status", "--porcelain"], cwd=repo_dir).stdout.strip().splitlines()
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to read repo status: {git_error(exc)}")
+    lines.append(f"dirty: {'yes' if dirty else 'no'}")
+    if dirty:
+        lines.append("changes:")
+        lines.extend(f"- {line}" for line in dirty[:20])
+        if len(dirty) > 20:
+            lines.append(f"- ... ({len(dirty) - 20} more)")
+
+    try:
+        run_git(["git", "fetch", "origin", branch], cwd=repo_dir)
+        local_head = run_git(["git", "rev-parse", "HEAD"], cwd=repo_dir).stdout.strip()
+        remote_head = run_git(["git", "rev-parse", f"origin/{branch}"], cwd=repo_dir).stdout.strip()
+        base_head = run_git(["git", "merge-base", "HEAD", f"origin/{branch}"], cwd=repo_dir).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to compare local/remote branch state: {git_error(exc)}")
+
+    if local_head == remote_head:
+        sync_state = "in-sync"
+    elif local_head == base_head:
+        sync_state = "behind"
+    elif remote_head == base_head:
+        sync_state = "ahead"
+    else:
+        sync_state = "diverged"
+    lines.append(f"sync: {sync_state}")
+    return "\n".join(lines) + "\n"
+
+
+def git_commit_all(repo_dir: Path, message: str) -> bool:
+    try:
+        dirty = run_git(["git", "status", "--porcelain"], cwd=repo_dir).stdout.strip()
+        if not dirty:
+            return False
+        run_git(["git", "add", "-A"], cwd=repo_dir)
+        run_git(["git", "commit", "-m", message], cwd=repo_dir)
+        return True
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to commit repo changes: {git_error(exc)}")
+
+
+def git_pull_ff_only(repo_dir: Path, branch: str) -> None:
+    ensure_clean_repo(repo_dir)
+    try:
+        run_git(["git", "fetch", "origin", branch], cwd=repo_dir)
+        run_git(["git", "checkout", branch], cwd=repo_dir)
+        run_git(["git", "pull", "--ff-only", "origin", branch], cwd=repo_dir)
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to pull latest changes: {git_error(exc)}")
+
+
+def git_push(repo_dir: Path, branch: str) -> None:
+    try:
+        run_git(["git", "push", "origin", branch], cwd=repo_dir)
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Failed to push changes: {git_error(exc)}")
 
 
 def load_graph(path_arg: str) -> tuple[Path, Path, dict]:
@@ -633,7 +796,16 @@ def validate_graph(data: dict) -> list[str]:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    run_dir, graph_path = resolve_paths(args.path)
+    repo_meta = None
+    if args.repo_url:
+        run_dir, graph_path, repo_meta = prepare_repo_backed_run_dir(
+            args.path,
+            args.repo_url,
+            args.repo_branch,
+            args.id,
+        )
+    else:
+        run_dir, graph_path = resolve_paths(args.path)
     run_dir.mkdir(parents=True, exist_ok=True)
     if graph_path.exists() and not args.force:
         raise SystemExit(f"Graph file already exists: {graph_path}. Use --force to overwrite.")
@@ -648,9 +820,13 @@ def cmd_init(args: argparse.Namespace) -> int:
             "status": ensure_status(args.status),
         }
     }
+    if repo_meta:
+        data["project"]["repo"] = repo_meta
     save_graph(graph_path, data)
     summary_path = write_summary(run_dir, data)
     print(f"Initialized graph-task run at {graph_path}")
+    if repo_meta:
+        print(f"Repo-backed project directory: {run_dir}")
     print(f"Wrote summary to {summary_path}")
     return 0
 
@@ -897,6 +1073,51 @@ def cmd_export_obsidian(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_git_status(args: argparse.Namespace) -> int:
+    run_dir, _, data = load_graph(args.path)
+    repo_dir, repo_meta = resolve_repo_checkout_dir(run_dir, data)
+    sys.stdout.write(render_repo_status(repo_dir, repo_meta))
+    return 0
+
+
+def cmd_git_pull(args: argparse.Namespace) -> int:
+    run_dir, _, data = load_graph(args.path)
+    repo_dir, repo_meta = resolve_repo_checkout_dir(run_dir, data)
+    git_pull_ff_only(repo_dir, repo_meta.get("branch", "main"))
+    print(f"Pulled latest changes for {repo_dir}")
+    return 0
+
+
+def cmd_git_push(args: argparse.Namespace) -> int:
+    run_dir, _, data = load_graph(args.path)
+    repo_dir, repo_meta = resolve_repo_checkout_dir(run_dir, data)
+    did_commit = False
+    if args.message:
+        did_commit = git_commit_all(repo_dir, args.message)
+    git_push(repo_dir, repo_meta.get("branch", "main"))
+    if did_commit:
+        print(f"Committed and pushed changes for {repo_dir}")
+    else:
+        print(f"Pushed changes for {repo_dir}")
+    return 0
+
+
+def cmd_git_sync(args: argparse.Namespace) -> int:
+    run_dir, _, data = load_graph(args.path)
+    repo_dir, repo_meta = resolve_repo_checkout_dir(run_dir, data)
+    branch = repo_meta.get("branch", "main")
+    git_pull_ff_only(repo_dir, branch)
+    did_commit = False
+    if args.message:
+        did_commit = git_commit_all(repo_dir, args.message)
+    git_push(repo_dir, branch)
+    if did_commit:
+        print(f"Pulled, committed, and pushed changes for {repo_dir}")
+    else:
+        print(f"Pulled and pushed changes for {repo_dir}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Minimal graph-task CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -908,6 +1129,8 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--description", required=True)
     init_parser.add_argument("--goal", required=True)
     init_parser.add_argument("--status", default="pending")
+    init_parser.add_argument("--repo-url", help="Clone/pull this git repo and create the run under <checkout>/<project-id>/")
+    init_parser.add_argument("--repo-branch", default="main")
     init_parser.add_argument("--force", action="store_true")
     init_parser.set_defaults(func=cmd_init)
 
@@ -1003,6 +1226,24 @@ def build_parser() -> argparse.ArgumentParser:
     export_obsidian_parser.add_argument("output_dir")
     export_obsidian_parser.add_argument("--force", action="store_true")
     export_obsidian_parser.set_defaults(func=cmd_export_obsidian)
+
+    git_status_parser = subparsers.add_parser("git-status", help="Show git sync state for a repo-backed run")
+    git_status_parser.add_argument("path")
+    git_status_parser.set_defaults(func=cmd_git_status)
+
+    git_pull_parser = subparsers.add_parser("git-pull", help="Fast-forward pull the backing repo for a repo-backed run")
+    git_pull_parser.add_argument("path")
+    git_pull_parser.set_defaults(func=cmd_git_pull)
+
+    git_push_parser = subparsers.add_parser("git-push", help="Push the backing repo for a repo-backed run")
+    git_push_parser.add_argument("path")
+    git_push_parser.add_argument("--message", help="If provided, commit all pending repo changes before pushing")
+    git_push_parser.set_defaults(func=cmd_git_push)
+
+    git_sync_parser = subparsers.add_parser("git-sync", help="Pull, optionally commit, and push the backing repo for a repo-backed run")
+    git_sync_parser.add_argument("path")
+    git_sync_parser.add_argument("--message", help="If provided, commit all pending repo changes after pull and before push")
+    git_sync_parser.set_defaults(func=cmd_git_sync)
 
     return parser
 
