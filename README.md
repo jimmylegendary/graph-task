@@ -48,5 +48,5 @@ Notes:
 - `examples/self-dogfood-project/` — richer dogfood example with repeated phases, step edges, and recorded findings
 - `examples/self-dogfood-obsidian-vault/` — exported Obsidian-friendly markdown vault for the richer dogfood example
 - `examples/md-first-minimal/` — smallest canonical markdown example for the vNext direction
-- `plugins/graph-task-obsidian/` — Obsidian community plugin MVP for tree-first exploration of md-first graph-task projects
+- standalone plugin repo: `https://github.com/jimmylegendary/graph-task-obsidian` — Obsidian community plugin MVP for tree-first exploration of md-first graph-task projects
 - `tests/test_graph_task_cli.py` — independent smoke tests
