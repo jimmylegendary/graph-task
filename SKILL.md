@@ -1,43 +1,66 @@
 ---
 name: graph-task
-description: Create, inspect, and update graph-backed work runs using the Project/Step/Phase/Node/Edge model and the bundled graph_task.py CLI. Use when you need to initialize a graph-task run, add steps/phases/nodes/edges, record expected-vs-actual node results, regenerate summaries, validate graph structure, or preserve task history without introducing a separate mutation engine.
+description: "Manage graph-task work runs with the md-first protocol: canonical markdown files, YAML frontmatter validation, and tree-first Obsidian collaboration. Use when you need to inspect or author the md-first run layout, validate frontmatter/file structure, review the legacy JSON CLI, or understand how markdown-canonical graph-task projects should be organized."
 ---
 
 # graph-task
 
-Use the bundled CLI:
+## Canonical rule
+
+vNext `graph-task` is **md-first**.
+
+Canonical state lives in markdown files arranged as the project/step/phase/node tree, with required YAML frontmatter on every canonical entity note.
+
+Treat JSON as support-only in this direction:
+- schema references
+- parser fixtures / tests
+- optional snapshots or exports
+- legacy prototype compatibility
+
+Do **not** treat `graph.json` as the durable source of truth for md-first runs.
+
+## Read these references first
+
+- `references/md-first-vnext-spec.md` — canonical md-first protocol
+- `references/obsidian-plugin-mvp-spec.md` — deterministic Obsidian client expectations
+- `examples/md-first-minimal/` — smallest canonical markdown example
+
+## Legacy prototype status
+
+This repo still includes a legacy `graph.json` CLI prototype in `scripts/graph_task.py`.
+That prototype is useful for learning, migration, and fixture generation, but it is no longer the primary contract.
+
+If you touch legacy JSON paths, label them clearly as one of:
+- legacy prototype behavior
+- migration aid
+- derived snapshot / export
+
+## Current operating model
+
+- Canonical md-first discovery comes from folder structure + required frontmatter.
+- Use one shared minimal status vocabulary everywhere: `pending | active | done | blocked | cancelled`.
+- Preserve history; prefer append-only logs/results over destructive rewrites.
+- Keep tree/containment semantics primary; use graph relationships as secondary metadata.
+- Validate frontmatter and filesystem reachability before claiming the structure is sound.
+
+## Recommended workflow
+
+1. Start from `references/md-first-vnext-spec.md` or `examples/md-first-minimal/`.
+2. Create or edit canonical markdown entities (`index.md`, node notes, result notes) in the md-first folder layout.
+3. Keep required frontmatter valid and stable.
+4. Record outcomes in append-only result notes and log files.
+5. Use Obsidian/plugin surfaces as working clients for the markdown tree.
+6. If you use the legacy CLI or export paths, describe them as derived/non-canonical.
+
+## Legacy CLI note
+
+The bundled CLI remains:
 
 ```bash
 python3 scripts/graph_task.py <command> ...
 ```
 
-## Read these references as needed
-
-- `references/schema.graph-task.json` — entity shape
-- `references/rules.graph-task.md` — structural rules
-- `references/result-record.schema.json` — result writeback shape
-- `references/cli.graph-task.md` — command examples and flags
-
-## Current operating model
-
-- Keep the graph in `graph.json` as the canonical state.
-- Use one shared minimal status vocabulary everywhere: `pending | active | done | blocked | cancelled`.
-- Do not introduce a separate mutation engine in this stage.
-- If the work structure changes, append new Steps, Phases, Nodes, and Edges instead of deleting history.
-- Record execution or verification outcomes by appending result records to `node.results` with expected vs actual text.
-
-## Recommended workflow
-
-1. Initialize a run with `init`.
-2. Add Steps.
-3. Add Phases to each Step; each Phase gets an automatic root node.
-4. Add work Nodes and node Edges.
-5. Add PhaseEdges and StepEdges where needed.
-6. Update statuses directly with `set-status`.
-7. Record outcomes with `write-result`.
-8. Use `summary` and `validate` before reporting completion.
-9. When human inspection or graph visualization matters, use `export-obsidian` to project the run into an Obsidian-friendly markdown vault.
-10. For repo-backed runs, use `git-status` to inspect sync state and `git-sync --message ...` for explicit manual pull/commit/push cycles.
+But unless a task is explicitly about the legacy prototype, assume markdown-canonical work is the real target.
 
 ## Repo-backed vault workflow
 

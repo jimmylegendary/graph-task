@@ -1,25 +1,28 @@
 # graph-task
 
-A compact staged system for graph-based task execution.
+A structured task protocol with a **markdown-canonical** working model.
 
 Current direction:
-1. learn from the JSON-canonical prototype already built
-2. redesign toward an md-first collaborative task protocol
-3. build an Obsidian plugin as the deterministic task client
+1. keep the old JSON CLI only as a legacy prototype / migration aid
+2. freeze the md-first collaborative protocol as the real contract
+3. make Obsidian the deterministic human-facing client for that protocol
 
 ## Current focus
-The repo now contains two layers of thinking:
-- the implemented Phase 1 / Phase 2 prototype, where `graph.json` is canonical
-- the newer vNext direction, where structured markdown becomes canonical and Obsidian becomes a first-class working surface
+The repo contains both:
+- a legacy `graph.json` prototype that still helps with fixtures and experimentation
+- the current vNext direction, where structured markdown is canonical and Obsidian is a first-class working surface
+
+The intended default is the second one.
+If a doc or example still presents `graph.json` as canonical, treat that as legacy material that should be corrected or clearly labeled.
 
 Recent additions:
-- `init` can target a git-backed repo checkout so each project run is created under its own top-level folder inside a shared vault/work repo.
-- repo-backed runs now have manual sync helpers: `git-status`, `git-pull`, `git-push`, and `git-sync`.
-- added `references/md-first-vnext-spec.md` to capture the current redesign toward structured-markdown canonical state and a protocol-aware Obsidian plugin
+- `references/md-first-vnext-spec.md` captures the markdown-canonical protocol
+- `references/obsidian-plugin-mvp-spec.md` defines the deterministic md-first plugin surface
+- `examples/md-first-minimal/` gives the smallest canonical markdown example
 
 ## High-level contract
 
-`graph-task` currently freezes this hierarchy first:
+Canonical md-first `graph-task` freezes this hierarchy first:
 
 - `project` = graph of `step`
 - `step` = graph of `phase`
@@ -31,7 +34,8 @@ Notes:
 - `phase` uses the functional modes `diverge | converge | verify | commit`
 - a step may repeat `diverge`, `converge`, and `verify`
 - a step may contain at most one `commit` phase
-- the current stage uses one shared status vocabulary and direct graph edits instead of a separate mutation engine
+- canonical discovery should come from folder layout + YAML frontmatter, not body links alone
+- the shared status vocabulary is `pending | active | done | blocked | cancelled`
 
 ## Main files
 
@@ -41,12 +45,12 @@ Notes:
 - `references/rules.graph-task.md` — high-level structural rules
 - `references/result-record.schema.json` — result writeback shape
 - `references/cli.graph-task.md` — CLI command surface
-- `references/phase2-obsidian-spec.md` — Phase 2 export / projection contract
-- `references/md-first-vnext-spec.md` — proposed md-first canonical redesign for collaborative use
-- `references/obsidian-plugin-mvp-spec.md` — proposed deterministic Obsidian client for md-first graph-task
-- `examples/minimal-project/` — smallest valid example with one result record
-- `examples/self-dogfood-project/` — richer dogfood example with repeated phases, step edges, and recorded findings
-- `examples/self-dogfood-obsidian-vault/` — exported Obsidian-friendly markdown vault for the richer dogfood example
+- `references/phase2-obsidian-spec.md` — **legacy** export/projection contract from the JSON-canonical phase
+- `references/md-first-vnext-spec.md` — canonical md-first protocol for collaborative use
+- `references/obsidian-plugin-mvp-spec.md` — deterministic Obsidian client for md-first graph-task
+- `examples/minimal-project/` — smallest valid example from the legacy JSON prototype
+- `examples/self-dogfood-project/` — richer legacy dogfood example with repeated phases, step edges, and recorded findings
+- `examples/self-dogfood-obsidian-vault/` — derived export from the legacy JSON prototype, not canonical state
 - `examples/md-first-minimal/` — smallest canonical markdown example for the vNext direction
 - standalone plugin repo: `https://github.com/jimmylegendary/graph-task-obsidian` — Obsidian community plugin MVP for tree-first exploration of md-first graph-task projects
-- `tests/test_graph_task_cli.py` — independent smoke tests
+- `tests/test_graph_task_cli.py` — smoke tests for the legacy CLI prototype

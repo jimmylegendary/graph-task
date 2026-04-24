@@ -1,5 +1,8 @@
 # Phase 2 — Obsidian visualization and semantic testing
 
+> Legacy phase note: this document describes the older JSON-canonical export model.
+> Keep it for historical context, but do not read it as the canonical vNext contract.
+
 ## Purpose
 Phase 2 turns the Phase 1 canonical graph state into a human-friendly Obsidian surface.
 
@@ -14,10 +17,10 @@ Can a `graph-task` run be exported into an Obsidian-friendly markdown vault that
 - remains simple enough to evolve before any round-trip editing or automation is introduced
 
 ## Canonical rule
-`graph.json` remains the canonical state.
+Within this legacy phase, `graph.json` remains the canonical state.
 Obsidian is a projection / inspection surface.
 
-Do not invert that relationship in this stage.
+This is **not** the vNext default. The md-first direction in `references/md-first-vnext-spec.md` supersedes this as the main contract.
 
 ## Minimum Phase 2 deliverable
 A first usable export path that writes an Obsidian-friendly vault with:

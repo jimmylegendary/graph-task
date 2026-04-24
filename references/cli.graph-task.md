@@ -1,5 +1,8 @@
 # graph-task CLI surface
 
+> Legacy prototype note: this CLI currently operates on `graph.json` runs.
+> In the md-first direction, treat its outputs as legacy behavior, migration help, or derived snapshots/exports — not canonical markdown state.
+
 Use the bundled CLI with:
 
 ```bash
@@ -154,7 +157,9 @@ python3 scripts/graph_task.py summary ./runs/demo
 ```
 
 ### export-obsidian
-Export the current run into an Obsidian-friendly markdown vault projection.
+Export the current legacy JSON run into an Obsidian-friendly markdown projection.
+
+This export is **non-canonical**. It is a derived view from `graph.json`, not the md-first source of truth.
 
 ```bash
 python3 scripts/graph_task.py export-obsidian ./runs/demo ./tmp/demo-vault
@@ -200,6 +205,9 @@ python3 scripts/graph_task.py git-sync ./tmp/company-vault/graph-task-demo \
 - If the repo is dirty, pull fails on purpose; resolve or commit local changes first.
 
 ## Current simplifications
+
+For md-first work, prefer editing/validating canonical markdown directly rather than extending this JSON-first CLI unless the task is explicitly about legacy compatibility.
+
 
 The current CLI intentionally does **not** have:
 - a separate mutation engine
