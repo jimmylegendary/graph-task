@@ -140,6 +140,133 @@ class GraphTaskCliTests(unittest.TestCase):
             self.assertEqual(node["results"][0]["status"], "done")
             self.assertEqual(node["results"][0]["nodeId"], "node-1")
 
+    def test_repeated_diverge_verify_phases_validate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "repeat-run"
+
+            self.run_cli(
+                "init",
+                str(run_dir),
+                "--id",
+                "repeat-project",
+                "--title",
+                "Repeat project",
+                "--description",
+                "Ensure repeated phase types remain valid",
+                "--goal",
+                "Keep history while looping through phases",
+            )
+            self.run_cli(
+                "add-step",
+                str(run_dir),
+                "--id",
+                "step-1",
+                "--step-type",
+                "analysis",
+                "--description",
+                "Loop through diverge and verify more than once",
+            )
+
+            for phase_id, phase_type, description in [
+                ("phase-diverge-1", "diverge", "Explore initial options"),
+                ("phase-verify-1", "verify", "Check the first option"),
+                ("phase-diverge-2", "diverge", "Re-open exploration after verification"),
+                ("phase-verify-2", "verify", "Check the revised option"),
+                ("phase-commit-1", "commit", "Lock the chosen path"),
+            ]:
+                self.run_cli(
+                    "add-phase",
+                    str(run_dir),
+                    "--step-id",
+                    "step-1",
+                    "--id",
+                    phase_id,
+                    "--phase-type",
+                    phase_type,
+                    "--description",
+                    description,
+                )
+
+            for edge_id, from_phase, to_phase in [
+                ("phase-edge-1", "phase-diverge-1", "phase-verify-1"),
+                ("phase-edge-2", "phase-verify-1", "phase-diverge-2"),
+                ("phase-edge-3", "phase-diverge-2", "phase-verify-2"),
+                ("phase-edge-4", "phase-verify-2", "phase-commit-1"),
+            ]:
+                self.run_cli(
+                    "add-phase-edge",
+                    str(run_dir),
+                    "--step-id",
+                    "step-1",
+                    "--id",
+                    edge_id,
+                    "--from-phase",
+                    from_phase,
+                    "--to-phase",
+                    to_phase,
+                )
+
+            validate = self.run_cli("validate", str(run_dir))
+            self.assertIn("VALID", validate.stdout)
+
+    def test_multiple_commit_phases_fail_before_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "invalid-commit-run"
+
+            self.run_cli(
+                "init",
+                str(run_dir),
+                "--id",
+                "invalid-commit-project",
+                "--title",
+                "Invalid commit project",
+                "--description",
+                "Ensure only one commit phase is allowed",
+                "--goal",
+                "Catch duplicate commit phases",
+            )
+            self.run_cli(
+                "add-step",
+                str(run_dir),
+                "--id",
+                "step-1",
+                "--step-type",
+                "implementation",
+                "--description",
+                "Test duplicate commit phase validation",
+            )
+            self.run_cli(
+                "add-phase",
+                str(run_dir),
+                "--step-id",
+                "step-1",
+                "--id",
+                "phase-commit-1",
+                "--phase-type",
+                "commit",
+                "--description",
+                "First commit phase",
+            )
+
+            second_commit = self.run_cli(
+                "add-phase",
+                str(run_dir),
+                "--step-id",
+                "step-1",
+                "--id",
+                "phase-commit-2",
+                "--phase-type",
+                "commit",
+                "--description",
+                "Second commit phase should fail validation",
+                check=False,
+            )
+            self.assertNotEqual(second_commit.returncode, 0)
+            self.assertIn("already has a commit phase", second_commit.stdout + second_commit.stderr)
+
+            validate = self.run_cli("validate", str(run_dir))
+            self.assertIn("VALID", validate.stdout)
+
     def test_skill_packages_cleanly(self):
         with tempfile.TemporaryDirectory() as tmp:
             skill_copy = Path(tmp) / "graph-task"
