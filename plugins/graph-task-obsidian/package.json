@@ -1,0 +1,24 @@
+{
+  "name": "graph-task-obsidian",
+  "version": "0.1.0",
+  "description": "Obsidian plugin MVP for the md-first graph-task protocol.",
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "obsidian",
+    "graph-task",
+    "md-first"
+  ],
+  "author": "graph-task",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "0.20.0",
+    "obsidian": "^1.4.11",
+    "typescript": "^5.3.3"
+  }
+}

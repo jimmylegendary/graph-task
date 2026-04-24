@@ -1,0 +1,9 @@
+{
+  "id": "graph-task-obsidian",
+  "name": "Graph-Task Explorer",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "MVP tree view for md-first graph-task projects (Project -> Step -> Phase -> Nodes/Results).",
+  "author": "graph-task",
+  "isDesktopOnly": false
+}
