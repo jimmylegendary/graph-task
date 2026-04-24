@@ -36,6 +36,7 @@ Notes:
 - a step may contain at most one `commit` phase
 - canonical discovery should come from folder layout + YAML frontmatter, not body links alone
 - the shared status vocabulary is `pending | active | done | blocked | cancelled`
+- when the project lives in a repo-backed Obsidian vault, that repo should be treated as one shared GitHub-synced workset rather than a drifting local-only copy
 
 ## Main files
 

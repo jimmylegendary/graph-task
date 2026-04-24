@@ -38,6 +38,9 @@ Do not treat JSON as the durable source of truth in vNext.
 ## Core design goal
 Enable deterministic task handling without requiring a monolithic machine-owned state file.
 
+When the markdown tree lives inside a Git-backed vault, treat that repo as the shared canonical workset.
+Local edits should be synchronized back into the remote workset rather than allowed to drift as a separate local-only truth.
+
 Determinism should come from:
 - strict folder and file conventions
 - YAML frontmatter contracts

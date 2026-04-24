@@ -42,6 +42,7 @@ If you touch legacy JSON paths, label them clearly as one of:
 - Preserve history; prefer append-only logs/results over destructive rewrites.
 - Keep tree/containment semantics primary; use graph relationships as secondary metadata.
 - Validate frontmatter and filesystem reachability before claiming the structure is sound.
+- For repo-backed vault work, treat the vault repo as one GitHub-synced workset: local edits should be reconciled back to the shared remote rather than drifting as a separate local-only truth.
 
 ## Recommended workflow
 
@@ -66,10 +67,12 @@ But unless a task is explicitly about the legacy prototype, assume markdown-cano
 
 - `init --repo-url <repo> --repo-branch <branch>` creates or refreshes a local checkout, then writes the run into `<checkout>/<project-id-slug>/`.
 - Repo metadata is recorded in `project.repo` so later sync commands can find the checkout again.
+- Treat the repo-backed vault as a shared canonical workset, not a disposable local scratch copy.
 - Use `git-status` before and after meaningful work blocks.
-- Use `git-push --message ...` when you only want to commit/push current local changes.
 - Use `git-pull` when you need the latest remote state and your local repo is clean.
+- Use `git-push --message ...` when you only want to commit/push current local changes.
 - Use `git-sync --message ...` as the normal manual sync path: fast-forward pull first, then commit all pending changes, then push.
+- If local changes cannot be synced safely, stop and surface the divergence instead of pretending the local vault is authoritative.
 - These commands operate on the entire repo checkout. Be honest if unrelated dirty files in the same repo make sync unsafe.
 - Avoid hidden merge behavior: this workflow intentionally prefers `pull --ff-only` and surfaces divergence instead of auto-resolving it.
 
