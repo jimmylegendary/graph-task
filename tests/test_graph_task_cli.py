@@ -278,6 +278,26 @@ class GraphTaskCliTests(unittest.TestCase):
         self.assertIn("step-self-dogfood", summary.stdout)
         self.assertIn("step-followups", summary.stdout)
 
+    def test_obsidian_export_writes_linked_vault(self):
+        run_dir = REPO_ROOT / "examples" / "self-dogfood-project"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            export_dir = Path(tmp) / "vault"
+            export = self.run_cli("export-obsidian", str(run_dir), str(export_dir))
+            self.assertIn("Exported Obsidian vault", export.stdout)
+
+            index_text = (export_dir / "index.md").read_text(encoding="utf-8")
+            project_text = (export_dir / "projects" / "dogfood-phase1-project.md").read_text(encoding="utf-8")
+            step_text = (export_dir / "steps" / "step-self-dogfood.md").read_text(encoding="utf-8")
+            phase_text = (export_dir / "phases" / "step-self-dogfood__phase-diverge-execution-2.md").read_text(encoding="utf-8")
+            node_text = (export_dir / "nodes" / "step-followups__phase-converge-findings-1__node-summarize-findings.md").read_text(encoding="utf-8")
+
+            self.assertIn("[[projects/dogfood-phase1-project|Dogfood graph-task on its own repo]]", index_text)
+            self.assertIn("[[steps/step-self-dogfood|step-self-dogfood]]", project_text)
+            self.assertIn("[[phases/step-self-dogfood__phase-diverge-execution-2|phase-diverge-execution-2]]", step_text)
+            self.assertIn("[[nodes/step-self-dogfood__phase-diverge-execution-2__node-build-self-dogfood-example|node-build-self-dogfood-example]]", phase_text)
+            self.assertIn("Strengths: repeated phases, step edges, and result records compose cleanly", node_text)
+
     def test_skill_packages_cleanly(self):
         with tempfile.TemporaryDirectory() as tmp:
             skill_copy = Path(tmp) / "graph-task"

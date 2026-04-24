@@ -8,7 +8,7 @@ Current direction:
 3. autonomous completion using existing execution tools
 
 ## Current focus
-Phase 1: freeze a usable graph-task skill + CLI contract before richer visualization or unattended automation.
+Phase 2 baseline: project Phase 1 graph-task runs into an Obsidian-friendly markdown vault for visualization and semantic testing, while keeping `graph.json` as the canonical state.
 
 ## High-level contract
 
@@ -34,6 +34,8 @@ Notes:
 - `references/rules.graph-task.md` — high-level structural rules
 - `references/result-record.schema.json` — result writeback shape
 - `references/cli.graph-task.md` — CLI command surface
+- `references/phase2-obsidian-spec.md` — Phase 2 export / projection contract
 - `examples/minimal-project/` — smallest valid example with one result record
 - `examples/self-dogfood-project/` — richer dogfood example with repeated phases, step edges, and recorded findings
+- `examples/self-dogfood-obsidian-vault/` — exported Obsidian-friendly markdown vault for the richer dogfood example
 - `tests/test_graph_task_cli.py` — independent smoke tests

@@ -36,6 +36,7 @@ python3 scripts/graph_task.py <command> ...
 6. Update statuses directly with `set-status`.
 7. Record outcomes with `write-result`.
 8. Use `summary` and `validate` before reporting completion.
+9. When human inspection or graph visualization matters, use `export-obsidian` to project the run into an Obsidian-friendly markdown vault.
 
 ## Minimum validation before claiming success
 

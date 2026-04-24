@@ -141,6 +141,14 @@ Regenerate and print `summary.md`.
 python3 scripts/graph_task.py summary ./runs/demo
 ```
 
+### export-obsidian
+Export the current run into an Obsidian-friendly markdown vault projection.
+
+```bash
+python3 scripts/graph_task.py export-obsidian ./runs/demo ./tmp/demo-vault
+python3 scripts/graph_task.py export-obsidian ./runs/demo ./tmp/demo-vault --force
+```
+
 ## Current simplifications
 
 The current CLI intentionally does **not** have:

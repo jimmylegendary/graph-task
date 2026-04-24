@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import shutil
 import sys
 import uuid
 from collections import deque
@@ -199,6 +200,275 @@ def write_summary(run_dir: Path, data: dict) -> Path:
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(render_summary(data), encoding="utf-8")
     return summary_path
+
+
+def obsidian_frontmatter(fields: dict[str, str]) -> list[str]:
+    lines = ["---"]
+    for key, value in fields.items():
+        escaped = str(value).replace('"', '\\"')
+        lines.append(f'{key}: "{escaped}"')
+    lines.extend(["---", ""])
+    return lines
+
+
+def obsidian_link(path_without_suffix: str, alias: str | None = None) -> str:
+    if alias:
+        return f"[[{path_without_suffix}|{alias}]]"
+    return f"[[{path_without_suffix}]]"
+
+
+def obsidian_step_note_name(step: dict) -> str:
+    return step["id"]
+
+
+def obsidian_phase_note_name(step: dict, phase: dict) -> str:
+    return f"{step['id']}__{phase['id']}"
+
+
+def obsidian_node_note_name(step: dict, phase: dict, node: dict) -> str:
+    return f"{step['id']}__{phase['id']}__{node['id']}"
+
+
+def format_obsidian_result(result: dict) -> list[str]:
+    lines = [
+        f"### Result `{result.get('id', '')}`",
+        f"- status: `{result.get('status', '')}`",
+        f"- at: `{result.get('at', '')}`",
+        f"- expected: {result.get('expected', '')}",
+        f"- actual: {result.get('actual', '')}",
+    ]
+    if result.get("notes"):
+        lines.append(f"- notes: {result['notes']}")
+    if result.get("artifacts"):
+        lines.append(f"- artifacts: {', '.join(result['artifacts'])}")
+    lines.append("")
+    return lines
+
+
+def render_obsidian_index(data: dict) -> str:
+    proj = project(data)
+    lines = [
+        "# graph-task Obsidian export",
+        "",
+        f"- project: {obsidian_link(f'projects/{proj['id']}', proj.get('title', proj['id']))}",
+        f"- steps: {len(proj.get('steps', []))}",
+        f"- exportedAt: `{now_iso()}`",
+        "",
+        "This vault is a projection of `graph.json`. The canonical state remains the graph-task run.",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_obsidian_project(proj: dict) -> str:
+    lines = obsidian_frontmatter(
+        {
+            "graphTaskEntityType": "project",
+            "graphTaskId": proj["id"],
+            "status": proj.get("status", "pending"),
+        }
+    )
+    lines.extend(
+        [
+            f"# {proj.get('title', proj['id'])}",
+            "",
+            f"- projectId: `{proj['id']}`",
+            f"- status: `{proj.get('status', 'pending')}`",
+            f"- goal: {proj.get('goal', '')}",
+            f"- description: {proj.get('description', '')}",
+            "",
+            "## Steps",
+        ]
+    )
+
+    for step in proj.get("steps", []):
+        lines.append(
+            f"- {obsidian_link(f'steps/{obsidian_step_note_name(step)}', step['id'])} [{step.get('stepType', '')}] status=`{step.get('status', 'pending')}`"
+        )
+
+    lines.extend(["", "## Step edges"])
+    if proj.get("stepEdges"):
+        step_lookup = {step["id"]: step for step in proj.get("steps", [])}
+        for edge in proj["stepEdges"]:
+            from_step = step_lookup.get(edge["fromStepId"], {"id": edge["fromStepId"]})
+            to_step = step_lookup.get(edge["toStepId"], {"id": edge["toStepId"]})
+            lines.append(
+                f"- {obsidian_link(f'steps/{obsidian_step_note_name(from_step)}', edge['fromStepId'])} -> {obsidian_link(f'steps/{obsidian_step_note_name(to_step)}', edge['toStepId'])}"
+            )
+    else:
+        lines.append("- none")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_obsidian_step(proj: dict, step: dict) -> str:
+    lines = obsidian_frontmatter(
+        {
+            "graphTaskEntityType": "step",
+            "graphTaskId": step["id"],
+            "projectId": proj["id"],
+            "stepType": step.get("stepType", ""),
+            "status": step.get("status", "pending"),
+        }
+    )
+    lines.extend(
+        [
+            f"# Step {step['id']}",
+            "",
+            f"- project: {obsidian_link(f'projects/{proj['id']}', proj.get('title', proj['id']))}",
+            f"- stepType: `{step.get('stepType', '')}`",
+            f"- status: `{step.get('status', 'pending')}`",
+            f"- description: {step.get('description', '')}",
+            "",
+            "## Phases",
+        ]
+    )
+
+    for phase in step.get("phases", []):
+        lines.append(
+            f"- {obsidian_link(f'phases/{obsidian_phase_note_name(step, phase)}', phase['id'])} [{phase.get('phaseType', '')}] status=`{phase.get('status', 'pending')}`"
+        )
+
+    lines.extend(["", "## Phase edges"])
+    if step.get("phaseEdges"):
+        phase_lookup = {phase["id"]: phase for phase in step.get("phases", [])}
+        for edge in step["phaseEdges"]:
+            from_phase = phase_lookup.get(edge["fromPhaseId"], {"id": edge["fromPhaseId"]})
+            to_phase = phase_lookup.get(edge["toPhaseId"], {"id": edge["toPhaseId"]})
+            lines.append(
+                f"- {obsidian_link(f'phases/{obsidian_phase_note_name(step, from_phase)}', edge['fromPhaseId'])} -> {obsidian_link(f'phases/{obsidian_phase_note_name(step, to_phase)}', edge['toPhaseId'])}"
+            )
+    else:
+        lines.append("- none")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_obsidian_phase(proj: dict, step: dict, phase: dict) -> str:
+    root_link = None
+    lines = obsidian_frontmatter(
+        {
+            "graphTaskEntityType": "phase",
+            "graphTaskId": phase["id"],
+            "projectId": proj["id"],
+            "stepId": step["id"],
+            "phaseType": phase.get("phaseType", ""),
+            "status": phase.get("status", "pending"),
+            "rootNodeId": phase.get("rootNodeId", ""),
+        }
+    )
+    lines.extend(
+        [
+            f"# Phase {phase['id']}",
+            "",
+            f"- project: {obsidian_link(f'projects/{proj['id']}', proj.get('title', proj['id']))}",
+            f"- step: {obsidian_link(f'steps/{obsidian_step_note_name(step)}', step['id'])}",
+            f"- phaseType: `{phase.get('phaseType', '')}`",
+            f"- status: `{phase.get('status', 'pending')}`",
+            f"- description: {phase.get('description', '')}",
+        ]
+    )
+
+    root_node = next((node for node in phase.get("nodes", []) if node.get("id") == phase.get("rootNodeId")), None)
+    if root_node:
+        root_link = obsidian_link(
+            f"nodes/{obsidian_node_note_name(step, phase, root_node)}",
+            root_node["id"],
+        )
+        lines.append(f"- rootNode: {root_link}")
+
+    lines.extend(["", "## Nodes"])
+    for node in phase.get("nodes", []):
+        lines.append(
+            f"- {obsidian_link(f'nodes/{obsidian_node_note_name(step, phase, node)}', node['id'])} [{node.get('nodeType', '')}] status=`{node.get('status', 'pending')}` — {node.get('title', '')}"
+        )
+
+    lines.extend(["", "## Node edges"])
+    if phase.get("edges"):
+        node_lookup = {node["id"]: node for node in phase.get("nodes", [])}
+        for edge in phase["edges"]:
+            from_node = node_lookup.get(edge["fromNodeId"], {"id": edge["fromNodeId"]})
+            to_node = node_lookup.get(edge["toNodeId"], {"id": edge["toNodeId"]})
+            lines.append(
+                f"- {obsidian_link(f'nodes/{obsidian_node_note_name(step, phase, from_node)}', edge['fromNodeId'])} -[{edge.get('edgeType', '')}]-> {obsidian_link(f'nodes/{obsidian_node_note_name(step, phase, to_node)}', edge['toNodeId'])}"
+            )
+    else:
+        lines.append("- none")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_obsidian_node(proj: dict, step: dict, phase: dict, node: dict) -> str:
+    lines = obsidian_frontmatter(
+        {
+            "graphTaskEntityType": "node",
+            "graphTaskId": node["id"],
+            "projectId": proj["id"],
+            "stepId": step["id"],
+            "phaseId": phase["id"],
+            "nodeType": node.get("nodeType", ""),
+            "status": node.get("status", "pending"),
+        }
+    )
+    lines.extend(
+        [
+            f"# Node {node['id']}",
+            "",
+            f"- project: {obsidian_link(f'projects/{proj['id']}', proj.get('title', proj['id']))}",
+            f"- step: {obsidian_link(f'steps/{obsidian_step_note_name(step)}', step['id'])}",
+            f"- phase: {obsidian_link(f'phases/{obsidian_phase_note_name(step, phase)}', phase['id'])}",
+            f"- nodeType: `{node.get('nodeType', '')}`",
+            f"- status: `{node.get('status', 'pending')}`",
+            f"- title: {node.get('title', '')}",
+            f"- description: {node.get('description', '')}",
+            "",
+            "## Results",
+        ]
+    )
+
+    if node.get("results"):
+        for result in node.get("results", []):
+            lines.extend(format_obsidian_result(result))
+    else:
+        lines.append("No results recorded yet.\n")
+
+    return "\n".join(lines)
+
+
+def write_obsidian_export(output_dir: Path, data: dict) -> None:
+    proj = project(data)
+    for folder in ["projects", "steps", "phases", "nodes"]:
+        (output_dir / folder).mkdir(parents=True, exist_ok=True)
+
+    (output_dir / "index.md").write_text(render_obsidian_index(data), encoding="utf-8")
+    (output_dir / "projects" / f"{proj['id']}.md").write_text(render_obsidian_project(proj), encoding="utf-8")
+
+    for step in proj.get("steps", []):
+        (output_dir / "steps" / f"{obsidian_step_note_name(step)}.md").write_text(
+            render_obsidian_step(proj, step),
+            encoding="utf-8",
+        )
+        for phase in step.get("phases", []):
+            (output_dir / "phases" / f"{obsidian_phase_note_name(step, phase)}.md").write_text(
+                render_obsidian_phase(proj, step, phase),
+                encoding="utf-8",
+            )
+            for node in phase.get("nodes", []):
+                (output_dir / "nodes" / f"{obsidian_node_note_name(step, phase, node)}.md").write_text(
+                    render_obsidian_node(proj, step, phase, node),
+                    encoding="utf-8",
+                )
+
+
+def prepare_obsidian_output_dir(output_dir: Path, force: bool) -> None:
+    if output_dir.exists() and any(output_dir.iterdir()):
+        if not force:
+            raise SystemExit(f"Output directory already exists and is not empty: {output_dir}. Use --force to overwrite.")
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def validate_graph(data: dict) -> list[str]:
@@ -618,6 +888,15 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_obsidian(args: argparse.Namespace) -> int:
+    _, _, data = load_graph(args.path)
+    output_dir = Path(args.output_dir)
+    prepare_obsidian_output_dir(output_dir, force=args.force)
+    write_obsidian_export(output_dir, data)
+    print(f"Exported Obsidian vault to {output_dir}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Minimal graph-task CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -715,6 +994,15 @@ def build_parser() -> argparse.ArgumentParser:
     summary_parser = subparsers.add_parser("summary", help="Render and write summary.md")
     summary_parser.add_argument("path")
     summary_parser.set_defaults(func=cmd_summary)
+
+    export_obsidian_parser = subparsers.add_parser(
+        "export-obsidian",
+        help="Export an Obsidian-friendly markdown vault projection",
+    )
+    export_obsidian_parser.add_argument("path")
+    export_obsidian_parser.add_argument("output_dir")
+    export_obsidian_parser.add_argument("--force", action="store_true")
+    export_obsidian_parser.set_defaults(func=cmd_export_obsidian)
 
     return parser
 
